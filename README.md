@@ -2,6 +2,9 @@
 
 A local Retrieval-Augmented Generation (RAG) system built with Python, ChromaDB, and Ollama. This prototype ingests FAQ data, retrieves relevant context, and answers user questions via a CLI or Web Interface.
 
+<img width="873" height="886" alt="image" src="https://github.com/user-attachments/assets/86db0fc3-8211-4c9e-9786-fd9e0d3cfe74" />
+
+
 ## 1. Prerequisites & Setup
 
 Before writing code, ensure you have the necessary tools:
