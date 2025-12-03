@@ -1,106 +1,104 @@
 # Self-Contained RAG Prototype
 
-A local Retrieval-Augmented Generation (RAG) system built with Python, ChromaDB, and Ollama. This prototype ingests FAQ data, retrieves relevant context, and answers user questions via a CLI.
+A local Retrieval-Augmented Generation (RAG) system built with Python, ChromaDB, and Ollama. This prototype ingests FAQ data, retrieves relevant context, and answers user questions via a CLI or Web Interface.
 
-## Prerequisites
+## 1. Prerequisites & Setup
 
-- **Python 3.9+**
-- **Ollama**: Must be installed and running locally.
-  - Install from [ollama.com](https://ollama.com).
-  - Pull the `llama3` model: `ollama pull llama3`.
+Before writing code, ensure you have the necessary tools:
 
-## Setup
+-   **Python 3.9+**: The programming language used.
+-   **Ollama**: A local tool to run LLMs.
+    -   Install from [ollama.com](https://ollama.com).
+    -   Run `ollama pull llama3` to download the model.
 
-1.  **Clone/Navigate to the directory**:
-    ```bash
-    cd rag_prototype
-    ```
+### Project Structure
 
-2.  **Create and Activate Virtual Environment**:
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
-
-3.  **Install Dependencies**:
-    ```bash
-    pip install -r rag_prototype/requirements.txt
-    ```
-
-4.  **Prepare Data**:
-    - Ensure `faq_data/` contains `.txt` files with your knowledge base.
-    - A sample `photoroom_faq.txt` is provided.
-
-## Usage
-
-### CLI Mode
-
-Run the application in the terminal:
-
-```bash
-python rag.py
-```
-
-### Web Interface
-
-Run the Flask web server:
-
-```bash
-python app.py
-```
-
-Open your browser and navigate to `http://localhost:8080`.
-
-The system will:
-1.  Ingest and chunk text files from `faq_data/`.
-2.  Store embeddings in an in-memory ChromaDB collection.
-3.  Start the selected interface.
-
-**Example Interaction**:
+Create a folder for your project and set up the following structure:
 
 ```text
-Enter your question: How is the API priced?
-Retrieving context...
-Found 3 relevant chunks. Generating answer...
-
-Answer:
-The Photoroom API uses a credit-based system where each successful call consumes one credit. Monthly plans start at $50 for 1,000 credits.
+rag_project/
+├── app.py                 # Web server (Flask)
+├── rag.py                 # Core RAG logic
+├── requirements.txt       # Dependencies
+├── faq_data/              # Folder for your text data
+│   └── your_data.txt
+├── templates/
+│   └── index.html         # Frontend HTML
+└── static/
+    ├── style.css          # Styles
+    └── script.js          # Frontend logic
 ```
 
-Type `exit` to quit.
+### Dependencies (`requirements.txt`)
 
-## Design Decisions
+Create a `requirements.txt` file with these libraries:
 
-### Vector Database: ChromaDB
-We chose **ChromaDB** for its simplicity and developer-friendly API.
--   **Simplicity**: It runs in-memory (ephemeral mode) by default, requiring no external server setup (like Docker containers for Postgres/pgvector or Weaviate).
--   **Built-in Embeddings**: It handles embedding generation automatically using `sentence-transformers` (defaulting to `all-MiniLM-L6-v2`), reducing boilerplate code.
+```text
+flask
+chromadb
+ollama
+sentence-transformers
+```
 
-### LLM: Ollama
-We chose **Ollama** to run the LLM locally.
--   **Privacy**: Data never leaves the local machine.
--   **Cost**: No API fees (unlike OpenAI/Anthropic).
--   **Ease of Use**: Provides a simple REST API and Python library to interact with powerful open-source models like Llama 3.
+Install them:
+```bash
+pip install -r requirements.txt
+```
 
-## Scaling for Enterprise
+## 2. Core RAG Logic (`rag.py`)
 
-To scale this prototype into an Enterprise-grade search engine (like Glean), we would need to address several key areas:
+This is the "brain" of the application. It handles three main tasks:
 
-### 1. Permissions & ACLs (Access Control Lists)
-**Challenge**: In an enterprise, not everyone should see every document (e.g., HR salaries vs. Engineering docs).
-**Solution**:
--   **Index-time**: Attach Access Control Lists (ACLs) to every document chunk in the vector DB (e.g., `allowed_groups: ['engineering', 'admin']`).
--   **Query-time**: Filter search results based on the authenticated user's identity. Chroma supports `where` filters that can be used to enforce these permissions before the retrieval step.
+1.  **Ingest**: Reading text files and saving them as vectors in a database.
+2.  **Retrieve**: Finding relevant text chunks for a user's question.
+3.  **Generate**: Sending the question + context to the LLM for an answer.
 
-### 2. Hybrid Search (Vector + Keyword)
-**Challenge**: Vector search is great for semantic meaning but can miss exact keyword matches (e.g., specific error codes like "ERR-505" or project codenames).
-**Solution**:
--   Implement **Hybrid Search** by combining dense vector retrieval with sparse keyword retrieval (BM25).
--   Use a re-ranking step (Cross-Encoder) to merge and score the results from both streams to provide the most accurate context.
+**Key Components:**
 
-### 3. Data Freshness & Event-Driven Indexing
-**Challenge**: Re-ingesting all data on every startup (as done in this prototype) is impossible at scale.
-**Solution**:
--   **Event-Driven Architecture**: Listen to webhooks or change streams from data sources (Google Drive, Slack, Confluence).
--   **Incremental Indexing**: Only process created, updated, or deleted documents.
--   **Queue System**: Use a message queue (Kafka/Celery) to decouple ingestion from indexing, ensuring the system remains responsive under heavy load.
+-   **ChromaDB**: A local vector database to store text embeddings.
+-   **Sentence Transformers**: Converts text into numbers (vectors).
+-   **Ollama**: The interface to the Llama 3 model.
+
+(See `rag.py` in the codebase for the full implementation of the `SimpleRAG` class).
+
+## 3. Web Server (`app.py`)
+
+We use Flask to create a simple web server.
+
+-   **Initialization**: When the app starts, it initializes the `SimpleRAG` class and ingests data from `faq_data/`.
+-   **Routes**:
+    -   `/`: Serves the `index.html` page.
+    -   `/api/chat`: A POST endpoint that takes a JSON query, calls `rag.retrieve()` and `rag.generate()`, and returns the answer.
+
+## 4. Frontend (`templates/index.html`)
+
+The frontend is a simple chat interface.
+
+-   **HTML**: Structure for the chat window and input box.
+-   **JavaScript** (in `static/script.js`):
+    -   Listens for the "Send" button click.
+    -   Sends the user's message to `/api/chat`.
+    -   Displays the loading state and then the bot's response.
+
+## 5. Data Preparation
+
+Place your knowledge base files (text or markdown) in the `faq_data/` folder. The system is designed to read these files, chunk them into paragraphs, and index them.
+
+## 6. Running the Application
+
+1.  **Start Ollama**: Ensure `ollama serve` is running in the background (or the desktop app is open).
+2.  **Run the App**:
+    ```bash
+    python app.py
+    ```
+3.  **Access**: Open `http://localhost:8080` in your browser.
+
+## Summary of Flow
+
+1.  User types a question in the browser.
+2.  Browser sends it to `app.py`.
+3.  `app.py` asks `rag.py` to find relevant info.
+4.  `rag.py` queries ChromaDB for similar text chunks.
+5.  `rag.py` sends the Question + Chunks to Ollama.
+6.  Ollama generates an answer.
+7.  `app.py` sends the answer back to the Browser.
